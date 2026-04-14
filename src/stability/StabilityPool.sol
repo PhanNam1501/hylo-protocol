@@ -10,47 +10,20 @@ import "../tokens/XETH.sol";
 import "../libraries/HyloMath.sol";
 
 /// @title StabilityPool
-/// @notice Implements Hylo's Stability Pool — staked hyUSD that:
-///
-///   1. YIELD (auto-compound):
-///      LST staking rewards → protocol harvests excess collateral →
-///      mints new hyUSD → injects here → share price rises.
-///      Holders earn yield by holding shyUSD (no manual claiming).
-///
-///   2. DRAWDOWN (CR < 130% — Mode 2):
-///      Protocol burns pool's hyUSD supply → mints xETH into pool.
-///      This reduces hyUSD supply → CR rises (non-linear effect).
-///      Holders now hold a mix of hyUSD + xETH in their shares.
-///      If ETH recovers, the xETH portion profits.
-///
-///   Share Model:
-///     Share Price = (pool hyUSD + pool xETH worth) / shyUSD supply
-///     When yield injected: share price rises (more hyUSD per share)
-///     When drawdown: hyUSD replaced by xETH (risk, but also upside)
-///
-///   Share accounting uses RAY (1e27) for precision.
+/// @notice Manages hyUSD staking shares, yield injection, and drawdown accounting.
 contract StabilityPool is ReentrancyGuard, AccessControl {
     using SafeERC20 for IERC20;
     using HyloMath for uint256;
 
     bytes32 public constant VAULT_ROLE = keccak256("VAULT_ROLE");
 
-    // ─── Tokens ───────────────────────────────────────────────────────────
     IERC20 public immutable hyUSD;
     XETH public immutable xETH;
     ShyUSD public immutable shyUSD;
 
-    // ─── Pool State ───────────────────────────────────────────────────────
-    // hyUSD sitting in pool (increases on deposit + yield injection, decreases on withdraw + drawdown)
     uint256 public hyUSDBalance;
-    // xETH accumulated in pool from drawdowns
     uint256 public xETHBalance;
 
-    // Total shyUSD shares in existence (tracked separately for precision)
-    // Note: shyUSD.totalSupply() == totalShares always
-    // We use RAY-scaled internal share price
-
-    // ─── Events ───────────────────────────────────────────────────────────
     event Deposited(
         address indexed user,
         uint256 hyUSDAmount,
@@ -81,18 +54,12 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
-    // ─── Share Price ──────────────────────────────────────────────────────
-
-    /// @notice Returns current share price in RAY (1 RAY = 1 hyUSD per share at genesis)
-    ///         Share price only counts hyUSD — xETH portion tracked separately
-    ///         and returned proportionally on withdrawal.
+    /// @notice Returns current shyUSD share price in RAY.
     function sharePrice() public view returns (uint256) {
         uint256 supply = shyUSD.totalSupply();
-        if (supply == 0) return HyloMath.RAY; // Genesis: 1:1
-        return HyloMath.rayDiv((hyUSDBalance * HyloMath.RAY) / 1, supply);
+        if (supply == 0) return HyloMath.RAY;
+        return (hyUSDBalance * HyloMath.RAY) / supply;
     }
-
-    // ─── Deposit ──────────────────────────────────────────────────────────
 
     /// @notice Deposit hyUSD → receive shyUSD shares
     /// @param amount Amount of hyUSD to deposit (WAD)
@@ -103,9 +70,8 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
 
         uint256 supply = shyUSD.totalSupply();
         if (supply == 0) {
-            shares = amount; // Bootstrap: 1 share per hyUSD
+            shares = amount;
         } else {
-            // shares = amount * totalShares / hyUSDBalance
             shares = (amount * supply) / hyUSDBalance;
         }
         require(shares > 0, "SP: zero shares");
@@ -117,8 +83,6 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
         emit Deposited(msg.sender, amount, shares);
     }
 
-    // ─── Withdraw ─────────────────────────────────────────────────────────
-
     /// @notice Burn shyUSD shares → receive pro-rata hyUSD + xETH
     /// @param shares Amount of shyUSD to burn
     function withdraw(
@@ -128,7 +92,6 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
         uint256 supply = shyUSD.totalSupply();
         require(shares <= supply, "SP: exceeds supply");
 
-        // Pro-rata claim on both assets
         hyUSDOut = (hyUSDBalance * shares) / supply;
         xETHOut = (xETHBalance * shares) / supply;
 
@@ -143,11 +106,7 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
         emit Withdrawn(msg.sender, shares, hyUSDOut, xETHOut);
     }
 
-    // ─── Yield Injection (called by HyloVault on harvest) ─────────────────
-
-    /// @notice Vault injects harvested LST yield as new hyUSD.
-    ///         Increases hyUSDBalance without minting new shares → share price rises.
-    ///         This is the auto-compound mechanism.
+    /// @notice Injects harvested hyUSD yield into the pool.
     function injectYield(uint256 hyUSDAmount) external onlyRole(VAULT_ROLE) {
         require(hyUSDAmount > 0, "SP: zero yield");
         hyUSD.safeTransferFrom(msg.sender, address(this), hyUSDAmount);
@@ -156,17 +115,9 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
         emit YieldInjected(hyUSDAmount, sharePrice());
     }
 
-    // ─── Drawdown (Mode 2 — CR < 130%) ───────────────────────────────────
-
-    /// @notice Protocol draws down Stability Pool to restore CR.
-    ///         Burns pool's hyUSD → reduces hyUSD supply → CR rises.
-    ///         Mints equivalent xETH into pool → holders keep economic exposure.
-    ///
-    ///         Called by HyloVault when CR < CR_MODE1 (130%).
-    ///
-    /// @param hyUSDToBurn     Amount of pool hyUSD to burn (must be <= hyUSDBalance)
-    /// @param xETHToMint      Equivalent xETH to deposit into pool
-    ///                        (calculated by vault: xETHToMint = hyUSDToBurn / xETH price)
+    /// @notice Executes pool drawdown with hyUSD burn and xETH addition.
+    /// @param hyUSDToBurn Amount of pool hyUSD to burn.
+    /// @param xETHToMint Amount of xETH to add to the pool.
     function drawdown(
         uint256 hyUSDToBurn,
         uint256 xETHToMint
@@ -174,12 +125,8 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
         require(hyUSDToBurn <= hyUSDBalance, "SP: insufficient hyUSD in pool");
         require(hyUSDToBurn > 0 && xETHToMint > 0, "SP: zero amounts");
 
-        // Burn hyUSD from pool — this reduces circulating hyUSD supply
-        // The actual burn call goes through HyUSD token (vault has MINTER_ROLE)
-        // Here we just update accounting; vault already called hyUSD.burn() before this
         hyUSDBalance -= hyUSDToBurn;
 
-        // Receive xETH minted by vault into this pool
         IERC20(address(xETH)).safeTransferFrom(
             msg.sender,
             address(this),
@@ -187,26 +134,20 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
         );
         xETHBalance += xETHToMint;
 
-        // Note: totalShares (shyUSD supply) does NOT change.
-        // Each share now represents less hyUSD but some xETH.
-        // Net: holders took on ETH price risk in exchange for higher CR protection.
-
-        emit DrawdownExecuted(hyUSDToBurn, xETHToMint, 0); // CR emitted by vault
+        emit DrawdownExecuted(hyUSDToBurn, xETHToMint, 0);
     }
 
-    // ─── View Helpers ─────────────────────────────────────────────────────
-
-    /// @notice Total pool size in hyUSD terms (xETH excluded — price-dependent)
+    /// @notice Returns total hyUSD balance in the pool.
     function totalHyUSD() external view returns (uint256) {
         return hyUSDBalance;
     }
 
-    /// @notice Total xETH in pool from past drawdowns
+    /// @notice Returns total xETH balance in the pool.
     function totalXETH() external view returns (uint256) {
         return xETHBalance;
     }
 
-    /// @notice hyUSD value a given shares amount can claim
+    /// @notice Previews hyUSD claimable for a share amount.
     function previewWithdrawHyUSD(
         uint256 shares
     ) external view returns (uint256) {

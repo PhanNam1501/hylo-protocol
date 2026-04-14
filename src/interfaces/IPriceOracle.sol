@@ -2,10 +2,9 @@
 pragma solidity ^0.8.24;
 
 /// @title IPriceOracle
-/// @notice ETH/USD price — the only external oracle Hylo needs
-///         (mirrors Hylo's design: only 1 oracle, SOL/USD)
+/// @notice Interface for ETH/USD price data.
 interface IPriceOracle {
-    /// @return price ETH price in USD, 8 decimals (Chainlink standard)
-    /// @return updatedAt timestamp of last update
+    /// @return price ETH price in USD with 8 decimals.
+    /// @return updatedAt Last update timestamp.
     function getETHUSDPrice() external view returns (uint256 price, uint256 updatedAt);
 }

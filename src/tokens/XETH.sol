@@ -5,15 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 /// @title XETH
-/// @notice Leveraged long ETH token. Holds the Variable Reserve — everything
-///         in the collateral pool after backing hyUSD 1:1.
-///
-///         xETH Price = Variable Reserve / xETH Supply
-///         Effective Leverage = Total ETH / Variable Reserve
-///
-///         xETH is the "residual claimant":
-///           - ETH pumps → xETH earns leveraged upside
-///           - ETH dumps → xETH absorbs the loss (protecting hyUSD peg)
+/// @notice Protocol xETH token with restricted mint and burn.
 contract XETH is ERC20, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
