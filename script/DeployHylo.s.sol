@@ -17,11 +17,12 @@ contract DeployHylo is Script {
         address admin = vm.envAddress("ADMIN");
         address treasury = vm.envAddress("TREASURY");
         address ethUsdFeed = vm.envAddress("ETH_USD_FEED");
+        address permit2 = vm.envAddress("PERMIT2");
 
         vm.startBroadcast();
 
         (HyUSD hyUSD, XETH xETH, ShyUSD shyUSD) = _deployTokens(admin);
-        (FeeController feeController, StabilityPool stabilityPool) = _deployCore(admin, hyUSD, xETH, shyUSD);
+        (FeeController feeController, StabilityPool stabilityPool) = _deployCore(admin, hyUSD, xETH, shyUSD, permit2);
         LSTAdapter lstOracle = new LSTAdapter(admin);
         IPriceOracle priceOracle = new ChainlinkPriceOracle(ethUsdFeed);
         HyloVault vault =
@@ -42,12 +43,12 @@ contract DeployHylo is Script {
         shyUSD = new ShyUSD(admin);
     }
 
-    function _deployCore(address admin, HyUSD hyUSD, XETH xETH, ShyUSD shyUSD)
+    function _deployCore(address admin, HyUSD hyUSD, XETH xETH, ShyUSD shyUSD, address _permit2)
         internal
         returns (FeeController feeController, StabilityPool stabilityPool)
     {
         feeController = new FeeController(admin);
-        stabilityPool = new StabilityPool(address(hyUSD), address(xETH), address(shyUSD), admin);
+        stabilityPool = new StabilityPool(address(hyUSD), address(xETH), address(shyUSD), admin, _permit2);
     }
 
     function _deployVault(

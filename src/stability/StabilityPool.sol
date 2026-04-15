@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IPermit2, IAllowanceTransfer} from "permit2/interfaces/IPermit2.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -17,6 +18,7 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
 
     bytes32 public constant VAULT_ROLE = keccak256("VAULT_ROLE");
 
+    IPermit2 public immutable permit2;
     IERC20 public immutable hyUSD;
     XETH public immutable xETH;
     ShyUSD public immutable shyUSD;
@@ -29,7 +31,8 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
     event YieldInjected(uint256 hyUSDAmount, uint256 newSharePrice);
     event DrawdownExecuted(uint256 hyUSDBurned, uint256 xETHMinted, uint256 newCR);
 
-    constructor(address _hyUSD, address _xETH, address _shyUSD, address _admin) {
+    constructor(address _hyUSD, address _xETH, address _shyUSD, address _admin, address _permit2) {
+        permit2 = IPermit2(_permit2);
         hyUSD = IERC20(_hyUSD);
         xETH = XETH(_xETH);
         shyUSD = ShyUSD(_shyUSD);
@@ -41,6 +44,33 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
         uint256 supply = shyUSD.totalSupply();
         if (supply == 0) return HyloMath.RAY;
         return (hyUSDBalance * HyloMath.RAY) / supply;
+    }
+
+    /// @notice Deposit hyUSD → receive shyUSD shares
+    /// @param amount Amount of hyUSD to deposit (WAD)
+    function depositWithPermit2(
+        uint160 amount,
+        address owner, 
+        IAllowanceTransfer.PermitSingle calldata permitSingle,
+        bytes calldata signature
+        ) external nonReentrant returns (uint256 shares) {
+        require(amount > 0, "SP: zero amount");
+
+        uint256 supply = shyUSD.totalSupply();
+        if (supply == 0) {
+            shares = amount;
+        } else {
+            shares = (amount * supply) / hyUSDBalance;
+        }
+        require(shares > 0, "SP: zero shares");
+
+        try permit2.permit(owner, permitSingle, signature) {} catch {}
+
+        permit2.transferFrom(owner, address(this), amount, permitSingle.details.token);
+        hyUSDBalance += amount;
+        shyUSD.mint(msg.sender, shares);
+
+        emit Deposited(msg.sender, amount, shares);
     }
 
     /// @notice Deposit hyUSD → receive shyUSD shares
