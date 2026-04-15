@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../interfaces/IPriceOracle.sol";
+import "../interfaces/core/IPriceOracle.sol";
 
 interface AggregatorV3Interface {
     function latestRoundData()

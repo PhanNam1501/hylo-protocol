@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../interfaces/ILSTOracle.sol";
+import "../../interfaces/lst/ILSTOracle.sol";
 
 contract MockLSTOracle is ILSTOracle {
     mapping(address => uint256) public rateWad; // ETH per LST, WAD

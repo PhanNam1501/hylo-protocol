@@ -9,62 +9,102 @@ import "../src/stability/StabilityPool.sol";
 import "../src/tokens/HyUSD.sol";
 import "../src/tokens/XETH.sol";
 import "../src/tokens/ShyUSD.sol";
-import "../src/core/LSTAdapter.sol";
+import "../src/lst/LSTAdapter.sol";
 import "../src/core/ChainlinkPriceOracle.sol";
 
 contract DeployHylo is Script {
     function run() external {
         address admin = vm.envAddress("ADMIN");
         address treasury = vm.envAddress("TREASURY");
-
-        // LST addresses (optional, depending on network)
-        address stETH = vm.envOr("STETH", address(0));
-        address rETH = vm.envOr("RETH", address(0));
-        address wstETH = vm.envOr("WSTETH", address(0));
-
-        // Chainlink ETH/USD feed address
         address ethUsdFeed = vm.envAddress("ETH_USD_FEED");
 
         vm.startBroadcast();
 
-        HyUSD hyUSD = new HyUSD(admin);
-        XETH xETH = new XETH(admin);
-        ShyUSD shyUSD = new ShyUSD(admin);
+        (HyUSD hyUSD, XETH xETH, ShyUSD shyUSD) = _deployTokens(admin);
+        (FeeController feeController, StabilityPool stabilityPool) = _deployCore(
+            admin,
+            hyUSD,
+            xETH,
+            shyUSD
+        );
+        LSTAdapter lstOracle = new LSTAdapter(admin);
+        IPriceOracle priceOracle = new ChainlinkPriceOracle(ethUsdFeed);
+        HyloVault vault = _deployVault(
+            hyUSD,
+            xETH,
+            lstOracle,
+            priceOracle,
+            feeController,
+            stabilityPool,
+            treasury,
+            admin
+        );
+        _wireRoles(hyUSD, xETH, shyUSD, stabilityPool, vault);
 
-        FeeController feeController = new FeeController(admin);
-        StabilityPool stabilityPool = new StabilityPool(
+        // LST provider registration flow:
+        // 1) deploy provider(s) via LSTRateProviderFactory
+        // 2) call lstOracle.setLSTRateProvider(lstToken, provider)
+        // 3) call vault.addLST(lstToken)
+
+        vm.stopBroadcast();
+    }
+
+    function _deployTokens(
+        address admin
+    ) internal returns (HyUSD hyUSD, XETH xETH, ShyUSD shyUSD) {
+        hyUSD = new HyUSD(admin);
+        xETH = new XETH(admin);
+        shyUSD = new ShyUSD(admin);
+    }
+
+    function _deployCore(
+        address admin,
+        HyUSD hyUSD,
+        XETH xETH,
+        ShyUSD shyUSD
+    ) internal returns (FeeController feeController, StabilityPool stabilityPool) {
+        feeController = new FeeController(admin);
+        stabilityPool = new StabilityPool(
             address(hyUSD),
             address(xETH),
             address(shyUSD),
             admin
         );
+    }
 
-        ILSTOracle lstOracle = new LSTAdapter(stETH, rETH, wstETH);
-        IPriceOracle priceOracle = new ChainlinkPriceOracle(ethUsdFeed);
-
-        HyloVault vault = new HyloVault(
+    function _deployVault(
+        HyUSD hyUSD,
+        XETH xETH,
+        LSTAdapter lstOracle,
+        IPriceOracle priceOracle,
+        FeeController feeController,
+        StabilityPool stabilityPool,
+        address treasury,
+        address admin
+    ) internal returns (HyloVault vault) {
+        vault = new HyloVault(
             address(hyUSD),
             address(xETH),
-            address(lstOracle),
+            address(ILSTOracle(address(lstOracle))),
             address(priceOracle),
             address(feeController),
             address(stabilityPool),
             treasury,
             admin
         );
+    }
 
-        // Wire roles
+    function _wireRoles(
+        HyUSD hyUSD,
+        XETH xETH,
+        ShyUSD shyUSD,
+        StabilityPool stabilityPool,
+        HyloVault vault
+    ) internal {
         hyUSD.grantRole(hyUSD.MINTER_ROLE(), address(vault));
         xETH.grantRole(xETH.MINTER_ROLE(), address(vault));
         stabilityPool.grantRole(stabilityPool.VAULT_ROLE(), address(vault));
         shyUSD.grantRole(shyUSD.MINTER_ROLE(), address(stabilityPool));
-
-        // Add LSTs to basket if provided
-        if (stETH != address(0)) vault.addLST(stETH);
-        if (rETH != address(0)) vault.addLST(rETH);
-        if (wstETH != address(0)) vault.addLST(wstETH);
-
-        vm.stopBroadcast();
     }
 }
 

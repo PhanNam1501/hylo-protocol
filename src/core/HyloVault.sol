@@ -9,8 +9,8 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "../tokens/HyUSD.sol";
 import "../tokens/XETH.sol";
-import "../interfaces/ILSTOracle.sol";
-import "../interfaces/IPriceOracle.sol";
+import "../interfaces/lst/ILSTOracle.sol";
+import "../interfaces/core/IPriceOracle.sol";
 import "../core/FeeController.sol";
 import "../stability/StabilityPool.sol";
 import "../libraries/HyloMath.sol";
