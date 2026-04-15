@@ -18,15 +18,7 @@ interface IFeeController {
 
     function getXETHRedeemFee(uint256 cr) external view returns (uint256);
 
-    function applyFee(
-        uint256 amount,
-        uint256 feeBps
-    ) external pure returns (uint256 net, uint256 feeAmount);
+    function applyFee(uint256 amount, uint256 feeBps) external pure returns (uint256 net, uint256 feeAmount);
 
-    function setHealthyFees(
-        uint256 mintHyUSD,
-        uint256 redeemHyUSD,
-        uint256 mintXETH,
-        uint256 redeemXETH
-    ) external;
+    function setHealthyFees(uint256 mintHyUSD, uint256 redeemHyUSD, uint256 mintXETH, uint256 redeemXETH) external;
 }

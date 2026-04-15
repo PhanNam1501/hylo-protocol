@@ -17,4 +17,3 @@ contract MockPriceOracle is IPriceOracle {
         return (price, updatedAt);
     }
 }
-

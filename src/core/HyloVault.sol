@@ -42,45 +42,17 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
 
     uint256 public constant WAD = HyloMath.WAD;
 
-    uint256 public constant CR_DRAWDOWN_TRIGGER = 1.30e18;
-    uint256 public constant MAX_DRAWDOWN_FRACTION = 0.20e18;
-    uint256 public constant CR_DRAWDOWN_TARGET = 1.40e18;
+    uint256 public constant CR_DRAWDOWN_TRIGGER = 1.3e18;
+    uint256 public constant MAX_DRAWDOWN_FRACTION = 0.2e18;
+    uint256 public constant CR_DRAWDOWN_TARGET = 1.4e18;
 
-    event HyUSDMinted(
-        address indexed user,
-        address lst,
-        uint256 lstIn,
-        uint256 hyUSDOut,
-        uint256 fee
-    );
-    event HyUSDRedeemed(
-        address indexed user,
-        address lst,
-        uint256 hyUSDIn,
-        uint256 lstOut,
-        uint256 fee
-    );
-    event XETHMinted(
-        address indexed user,
-        address lst,
-        uint256 lstIn,
-        uint256 xETHOut,
-        uint256 fee
-    );
-    event XETHRedeemed(
-        address indexed user,
-        address lst,
-        uint256 xETHIn,
-        uint256 lstOut,
-        uint256 fee
-    );
+    event HyUSDMinted(address indexed user, address lst, uint256 lstIn, uint256 hyUSDOut, uint256 fee);
+    event HyUSDRedeemed(address indexed user, address lst, uint256 hyUSDIn, uint256 lstOut, uint256 fee);
+    event XETHMinted(address indexed user, address lst, uint256 lstIn, uint256 xETHOut, uint256 fee);
+    event XETHRedeemed(address indexed user, address lst, uint256 xETHIn, uint256 lstOut, uint256 fee);
     event YieldHarvested(uint256 ethYield, uint256 hyUSDMinted);
     event YieldSnapshotUpdated(address indexed lst, uint256 balance, uint256 rate);
-    event DrawdownTriggered(
-        uint256 cr,
-        uint256 hyUSDBurned,
-        uint256 xETHMinted
-    );
+    event DrawdownTriggered(uint256 cr, uint256 hyUSDBurned, uint256 xETHMinted);
     event LSTAdded(address lst);
     event LSTRemoved(address lst);
 
@@ -119,7 +91,7 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
 
     /// @notice Returns ETH/USD price from the oracle.
     function getETHPrice() public view returns (uint256 price) {
-        (price, ) = priceOracle.getETHUSDPrice();
+        (price,) = priceOracle.getETHUSDPrice();
     }
 
     /// @notice Returns hyUSD NAV denominated in ETH.
@@ -133,11 +105,7 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
     }
 
     /// @notice Returns variable reserve and solvency status.
-    function getVariableReserve()
-        public
-        view
-        returns (uint256 variableReserve, bool solvent)
-    {
+    function getVariableReserve() public view returns (uint256 variableReserve, bool solvent) {
         uint256 totalETH = getTotalETH();
         uint256 fixedReserve = getFixedReserve();
         if (totalETH >= fixedReserve) {
@@ -168,7 +136,7 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
     /// @notice Returns current effective leverage.
     function getEffectiveLeverage() public view returns (uint256) {
         uint256 totalETH = getTotalETH();
-        (uint256 variableReserve, ) = getVariableReserve();
+        (uint256 variableReserve,) = getVariableReserve();
         return HyloMath.effectiveLeverage(totalETH, variableReserve);
     }
 
@@ -192,13 +160,10 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
         ethPrice = getETHPrice();
         hyUSDNav = getHyUSDNavETH();
         fixedReserve = getFixedReserve();
-        (variableReserve, ) = getVariableReserve();
+        (variableReserve,) = getVariableReserve();
         xETHNav = getXETHNavETH();
         cr = HyloMath.collateralRatio(totalETH, fixedReserve);
-        effectiveLeverage = HyloMath.effectiveLeverage(
-            totalETH,
-            variableReserve
-        );
+        effectiveLeverage = HyloMath.effectiveLeverage(totalETH, variableReserve);
         mode = feeController.getMode(cr);
     }
 
@@ -206,11 +171,12 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
     /// @param lst       Address of LST to deposit (must be in accepted basket)
     /// @param lstAmount Amount of LST (WAD)
     /// @param minHyUSD  Slippage protection — min hyUSD out
-    function mintHyUSD(
-        address lst,
-        uint256 lstAmount,
-        uint256 minHyUSD
-    ) external nonReentrant whenNotPaused returns (uint256 hyUSDOut) {
+    function mintHyUSD(address lst, uint256 lstAmount, uint256 minHyUSD)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 hyUSDOut)
+    {
         require(isAcceptedLST[lst], "Vault: LST not accepted");
         require(lstAmount > 0, "Vault: zero amount");
 
@@ -245,11 +211,12 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
     /// @param hyUSDAmount  Amount of hyUSD to burn
     /// @param lst          Which LST to receive back
     /// @param minLST       Slippage protection
-    function redeemHyUSD(
-        uint256 hyUSDAmount,
-        address lst,
-        uint256 minLST
-    ) external nonReentrant whenNotPaused returns (uint256 lstOut) {
+    function redeemHyUSD(uint256 hyUSDAmount, address lst, uint256 minLST)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 lstOut)
+    {
         require(isAcceptedLST[lst], "Vault: LST not accepted");
         require(hyUSDAmount > 0, "Vault: zero amount");
 
@@ -268,10 +235,7 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
         lstOut = ethNeeded.wadDiv(lstRate);
 
         require(lstOut >= minLST, "Vault: slippage exceeded");
-        require(
-            IERC20(lst).balanceOf(address(this)) >= lstOut,
-            "Vault: insufficient collateral"
-        );
+        require(IERC20(lst).balanceOf(address(this)) >= lstOut, "Vault: insufficient collateral");
 
         hyUSD.burn(msg.sender, hyUSDAmount);
 
@@ -288,11 +252,12 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
     /// @param lst       LST to deposit
     /// @param lstAmount Amount of LST
     /// @param minXETH   Slippage protection
-    function mintXETH(
-        address lst,
-        uint256 lstAmount,
-        uint256 minXETH
-    ) external nonReentrant whenNotPaused returns (uint256 xETHOut) {
+    function mintXETH(address lst, uint256 lstAmount, uint256 minXETH)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 xETHOut)
+    {
         require(isAcceptedLST[lst], "Vault: LST not accepted");
         require(lstAmount > 0, "Vault: zero amount");
 
@@ -332,11 +297,12 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
     /// @param xETHAmount   Amount of xETH to burn
     /// @param lst          Which LST to receive
     /// @param minLST       Slippage protection
-    function redeemXETH(
-        uint256 xETHAmount,
-        address lst,
-        uint256 minLST
-    ) external nonReentrant whenNotPaused returns (uint256 lstOut) {
+    function redeemXETH(uint256 xETHAmount, address lst, uint256 minLST)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 lstOut)
+    {
         require(isAcceptedLST[lst], "Vault: LST not accepted");
         require(xETHAmount > 0, "Vault: zero amount");
 
@@ -356,10 +322,7 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
         lstOut = netETH.wadDiv(lstRate);
 
         require(lstOut >= minLST, "Vault: slippage exceeded");
-        require(
-            IERC20(lst).balanceOf(address(this)) >= lstOut,
-            "Vault: insufficient collateral"
-        );
+        require(IERC20(lst).balanceOf(address(this)) >= lstOut, "Vault: insufficient collateral");
 
         xETH.burn(msg.sender, xETHAmount);
 
@@ -499,9 +462,7 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
         emit LSTRemoved(lst);
     }
 
-    function setTreasury(
-        address _treasury
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTreasury(address _treasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_treasury != address(0), "Vault: zero address");
         treasury = _treasury;
     }
@@ -509,6 +470,7 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
     function pause() external onlyRole(GUARDIAN_ROLE) {
         _pause();
     }
+
     function unpause() external onlyRole(GUARDIAN_ROLE) {
         _unpause();
     }

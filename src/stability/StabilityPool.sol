@@ -24,30 +24,12 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
     uint256 public hyUSDBalance;
     uint256 public xETHBalance;
 
-    event Deposited(
-        address indexed user,
-        uint256 hyUSDAmount,
-        uint256 sharesIssued
-    );
-    event Withdrawn(
-        address indexed user,
-        uint256 shares,
-        uint256 hyUSDOut,
-        uint256 xETHOut
-    );
+    event Deposited(address indexed user, uint256 hyUSDAmount, uint256 sharesIssued);
+    event Withdrawn(address indexed user, uint256 shares, uint256 hyUSDOut, uint256 xETHOut);
     event YieldInjected(uint256 hyUSDAmount, uint256 newSharePrice);
-    event DrawdownExecuted(
-        uint256 hyUSDBurned,
-        uint256 xETHMinted,
-        uint256 newCR
-    );
+    event DrawdownExecuted(uint256 hyUSDBurned, uint256 xETHMinted, uint256 newCR);
 
-    constructor(
-        address _hyUSD,
-        address _xETH,
-        address _shyUSD,
-        address _admin
-    ) {
+    constructor(address _hyUSD, address _xETH, address _shyUSD, address _admin) {
         hyUSD = IERC20(_hyUSD);
         xETH = XETH(_xETH);
         shyUSD = ShyUSD(_shyUSD);
@@ -63,9 +45,7 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
 
     /// @notice Deposit hyUSD → receive shyUSD shares
     /// @param amount Amount of hyUSD to deposit (WAD)
-    function deposit(
-        uint256 amount
-    ) external nonReentrant returns (uint256 shares) {
+    function deposit(uint256 amount) external nonReentrant returns (uint256 shares) {
         require(amount > 0, "SP: zero amount");
 
         uint256 supply = shyUSD.totalSupply();
@@ -85,9 +65,7 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
 
     /// @notice Burn shyUSD shares → receive pro-rata hyUSD + xETH
     /// @param shares Amount of shyUSD to burn
-    function withdraw(
-        uint256 shares
-    ) external nonReentrant returns (uint256 hyUSDOut, uint256 xETHOut) {
+    function withdraw(uint256 shares) external nonReentrant returns (uint256 hyUSDOut, uint256 xETHOut) {
         require(shares > 0, "SP: zero shares");
         uint256 supply = shyUSD.totalSupply();
         require(shares <= supply, "SP: exceeds supply");
@@ -100,8 +78,9 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
         if (xETHOut > 0) xETHBalance -= xETHOut;
 
         if (hyUSDOut > 0) hyUSD.safeTransfer(msg.sender, hyUSDOut);
-        if (xETHOut > 0)
+        if (xETHOut > 0) {
             IERC20(address(xETH)).safeTransfer(msg.sender, xETHOut);
+        }
 
         emit Withdrawn(msg.sender, shares, hyUSDOut, xETHOut);
     }
@@ -118,20 +97,13 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
     /// @notice Executes pool drawdown with hyUSD burn and xETH addition.
     /// @param hyUSDToBurn Amount of pool hyUSD to burn.
     /// @param xETHToMint Amount of xETH to add to the pool.
-    function drawdown(
-        uint256 hyUSDToBurn,
-        uint256 xETHToMint
-    ) external onlyRole(VAULT_ROLE) nonReentrant {
+    function drawdown(uint256 hyUSDToBurn, uint256 xETHToMint) external onlyRole(VAULT_ROLE) nonReentrant {
         require(hyUSDToBurn <= hyUSDBalance, "SP: insufficient hyUSD in pool");
         require(hyUSDToBurn > 0 && xETHToMint > 0, "SP: zero amounts");
 
         hyUSDBalance -= hyUSDToBurn;
 
-        IERC20(address(xETH)).safeTransferFrom(
-            msg.sender,
-            address(this),
-            xETHToMint
-        );
+        IERC20(address(xETH)).safeTransferFrom(msg.sender, address(this), xETHToMint);
         xETHBalance += xETHToMint;
 
         emit DrawdownExecuted(hyUSDToBurn, xETHToMint, 0);
@@ -148,9 +120,7 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
     }
 
     /// @notice Previews hyUSD claimable for a share amount.
-    function previewWithdrawHyUSD(
-        uint256 shares
-    ) external view returns (uint256) {
+    function previewWithdrawHyUSD(uint256 shares) external view returns (uint256) {
         uint256 supply = shyUSD.totalSupply();
         if (supply == 0) return 0;
         return (hyUSDBalance * shares) / supply;

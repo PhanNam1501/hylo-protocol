@@ -7,10 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /// @notice Deploys any LST rate provider with CREATE2 and predicts deterministic addresses.
 contract LSTRateProviderFactory is Ownable {
     event ProviderDeployed(
-        bytes32 indexed salt,
-        bytes32 indexed initCodeHash,
-        address indexed provider,
-        bytes32 bytecodeHash
+        bytes32 indexed salt, bytes32 indexed initCodeHash, address indexed provider, bytes32 bytecodeHash
     );
 
     constructor(address initialOwner) Ownable(initialOwner) {}
@@ -19,11 +16,11 @@ contract LSTRateProviderFactory is Ownable {
     /// @param salt CREATE2 salt.
     /// @param creationCode Contract creation code (type(MyProvider).creationCode).
     /// @param constructorArgs ABI-encoded constructor args.
-    function deployProvider(
-        bytes32 salt,
-        bytes calldata creationCode,
-        bytes calldata constructorArgs
-    ) external onlyOwner returns (address provider) {
+    function deployProvider(bytes32 salt, bytes calldata creationCode, bytes calldata constructorArgs)
+        external
+        onlyOwner
+        returns (address provider)
+    {
         bytes memory bytecode = abi.encodePacked(creationCode, constructorArgs);
         bytes32 initCodeHash = keccak256(bytecode);
         bytes32 codeHash = keccak256(creationCode);
@@ -41,10 +38,11 @@ contract LSTRateProviderFactory is Ownable {
     }
 
     /// @notice Computes init code hash from creation code and constructor args.
-    function computeInitCodeHash(
-        bytes calldata creationCode,
-        bytes calldata constructorArgs
-    ) external pure returns (bytes32) {
+    function computeInitCodeHash(bytes calldata creationCode, bytes calldata constructorArgs)
+        external
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked(creationCode, constructorArgs));
     }
 
@@ -53,14 +51,7 @@ contract LSTRateProviderFactory is Ownable {
     }
 
     function _predictAddress(bytes32 salt, bytes32 initCodeHash) internal view returns (address) {
-        bytes32 hash = keccak256(
-            abi.encodePacked(
-                bytes1(0xff),
-                address(this),
-                salt,
-                initCodeHash
-            )
-        );
+        bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, initCodeHash));
         return address(uint160(uint256(hash)));
     }
 }

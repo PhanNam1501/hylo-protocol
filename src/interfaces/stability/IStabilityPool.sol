@@ -6,9 +6,7 @@ interface IStabilityPool {
 
     function deposit(uint256 amount) external returns (uint256 shares);
 
-    function withdraw(
-        uint256 shares
-    ) external returns (uint256 hyUSDOut, uint256 xETHOut);
+    function withdraw(uint256 shares) external returns (uint256 hyUSDOut, uint256 xETHOut);
 
     function injectYield(uint256 hyUSDAmount) external;
 

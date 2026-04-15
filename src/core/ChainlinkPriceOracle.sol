@@ -7,13 +7,7 @@ interface AggregatorV3Interface {
     function latestRoundData()
         external
         view
-        returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        );
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
     function decimals() external view returns (uint8);
 }
 
@@ -29,7 +23,7 @@ contract ChainlinkPriceOracle is IPriceOracle {
 
     /// @inheritdoc IPriceOracle
     function getETHUSDPrice() external view override returns (uint256 price, uint256 updatedAt) {
-        (, int256 answer, , uint256 _updatedAt, ) = feed.latestRoundData();
+        (, int256 answer,, uint256 _updatedAt,) = feed.latestRoundData();
         require(answer > 0, "Oracle: invalid price");
         require(block.timestamp - _updatedAt <= STALE_THRESHOLD, "Oracle: stale price");
 

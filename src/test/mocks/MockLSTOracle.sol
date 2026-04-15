@@ -15,4 +15,3 @@ contract MockLSTOracle is ILSTOracle {
         require(rate != 0, "MockLSTOracle: rate not set");
     }
 }
-

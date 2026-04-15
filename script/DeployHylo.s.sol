@@ -21,24 +21,11 @@ contract DeployHylo is Script {
         vm.startBroadcast();
 
         (HyUSD hyUSD, XETH xETH, ShyUSD shyUSD) = _deployTokens(admin);
-        (FeeController feeController, StabilityPool stabilityPool) = _deployCore(
-            admin,
-            hyUSD,
-            xETH,
-            shyUSD
-        );
+        (FeeController feeController, StabilityPool stabilityPool) = _deployCore(admin, hyUSD, xETH, shyUSD);
         LSTAdapter lstOracle = new LSTAdapter(admin);
         IPriceOracle priceOracle = new ChainlinkPriceOracle(ethUsdFeed);
-        HyloVault vault = _deployVault(
-            hyUSD,
-            xETH,
-            lstOracle,
-            priceOracle,
-            feeController,
-            stabilityPool,
-            treasury,
-            admin
-        );
+        HyloVault vault =
+            _deployVault(hyUSD, xETH, lstOracle, priceOracle, feeController, stabilityPool, treasury, admin);
         _wireRoles(hyUSD, xETH, shyUSD, stabilityPool, vault);
 
         // LST provider registration flow:
@@ -49,27 +36,18 @@ contract DeployHylo is Script {
         vm.stopBroadcast();
     }
 
-    function _deployTokens(
-        address admin
-    ) internal returns (HyUSD hyUSD, XETH xETH, ShyUSD shyUSD) {
+    function _deployTokens(address admin) internal returns (HyUSD hyUSD, XETH xETH, ShyUSD shyUSD) {
         hyUSD = new HyUSD(admin);
         xETH = new XETH(admin);
         shyUSD = new ShyUSD(admin);
     }
 
-    function _deployCore(
-        address admin,
-        HyUSD hyUSD,
-        XETH xETH,
-        ShyUSD shyUSD
-    ) internal returns (FeeController feeController, StabilityPool stabilityPool) {
+    function _deployCore(address admin, HyUSD hyUSD, XETH xETH, ShyUSD shyUSD)
+        internal
+        returns (FeeController feeController, StabilityPool stabilityPool)
+    {
         feeController = new FeeController(admin);
-        stabilityPool = new StabilityPool(
-            address(hyUSD),
-            address(xETH),
-            address(shyUSD),
-            admin
-        );
+        stabilityPool = new StabilityPool(address(hyUSD), address(xETH), address(shyUSD), admin);
     }
 
     function _deployVault(
@@ -94,17 +72,10 @@ contract DeployHylo is Script {
         );
     }
 
-    function _wireRoles(
-        HyUSD hyUSD,
-        XETH xETH,
-        ShyUSD shyUSD,
-        StabilityPool stabilityPool,
-        HyloVault vault
-    ) internal {
+    function _wireRoles(HyUSD hyUSD, XETH xETH, ShyUSD shyUSD, StabilityPool stabilityPool, HyloVault vault) internal {
         hyUSD.grantRole(hyUSD.MINTER_ROLE(), address(vault));
         xETH.grantRole(xETH.MINTER_ROLE(), address(vault));
         stabilityPool.grantRole(stabilityPool.VAULT_ROLE(), address(vault));
         shyUSD.grantRole(shyUSD.MINTER_ROLE(), address(stabilityPool));
     }
 }
-

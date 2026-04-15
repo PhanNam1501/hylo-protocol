@@ -12,10 +12,7 @@ interface IHyloVault {
 
     function getFixedReserve() external view returns (uint256);
 
-    function getVariableReserve()
-        external
-        view
-        returns (uint256 variableReserve, bool solvent);
+    function getVariableReserve() external view returns (uint256 variableReserve, bool solvent);
 
     function getXETHNavETH() external view returns (uint256);
 
@@ -38,29 +35,13 @@ interface IHyloVault {
             IFeeController.StabilityMode mode
         );
 
-    function mintHyUSD(
-        address lst,
-        uint256 lstAmount,
-        uint256 minHyUSD
-    ) external returns (uint256 hyUSDOut);
+    function mintHyUSD(address lst, uint256 lstAmount, uint256 minHyUSD) external returns (uint256 hyUSDOut);
 
-    function redeemHyUSD(
-        uint256 hyUSDAmount,
-        address lst,
-        uint256 minLST
-    ) external returns (uint256 lstOut);
+    function redeemHyUSD(uint256 hyUSDAmount, address lst, uint256 minLST) external returns (uint256 lstOut);
 
-    function mintXETH(
-        address lst,
-        uint256 lstAmount,
-        uint256 minXETH
-    ) external returns (uint256 xETHOut);
+    function mintXETH(address lst, uint256 lstAmount, uint256 minXETH) external returns (uint256 xETHOut);
 
-    function redeemXETH(
-        uint256 xETHAmount,
-        address lst,
-        uint256 minLST
-    ) external returns (uint256 lstOut);
+    function redeemXETH(uint256 xETHAmount, address lst, uint256 minLST) external returns (uint256 lstOut);
 
     function harvest() external;
 

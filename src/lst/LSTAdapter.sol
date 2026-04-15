@@ -19,10 +19,7 @@ contract LSTAdapter is ILSTOracle, Ownable {
     function setLSTRateProvider(address lstToken, address provider) external onlyOwner {
         require(lstToken != address(0), "LSTAdapter: zero token");
         if (provider != address(0)) {
-            require(
-                ILSTRateProvider(provider).lstToken() == lstToken,
-                "LSTAdapter: provider-token mismatch"
-            );
+            require(ILSTRateProvider(provider).lstToken() == lstToken, "LSTAdapter: provider-token mismatch");
         }
         lstRateProvider[lstToken] = provider;
         emit LSTRateProviderUpdated(lstToken, provider);

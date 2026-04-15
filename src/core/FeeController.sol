@@ -9,26 +9,30 @@ import "../libraries/HyloMath.sol";
 contract FeeController is Ownable {
     using HyloMath for uint256;
 
-    uint256 public constant CR_HEALTHY  = 1.50e18;
-    uint256 public constant CR_MODE1    = 1.30e18;
-    uint256 public constant CR_CRITICAL = 1.00e18;
+    uint256 public constant CR_HEALTHY = 1.5e18;
+    uint256 public constant CR_MODE1 = 1.3e18;
+    uint256 public constant CR_CRITICAL = 1.0e18;
 
-    uint256 public hyUSDMintFeeHealthy   = 0.001e18;
+    uint256 public hyUSDMintFeeHealthy = 0.001e18;
     uint256 public hyUSDRedeemFeeHealthy = 0.001e18;
-    uint256 public xETHMintFeeHealthy    = 0.001e18;
-    uint256 public xETHRedeemFeeHealthy  = 0.001e18;
+    uint256 public xETHMintFeeHealthy = 0.001e18;
+    uint256 public xETHRedeemFeeHealthy = 0.001e18;
 
-    uint256 public hyUSDMintFeeMode1     = 0.010e18;
-    uint256 public hyUSDRedeemFeeMode1   = 0.000e18;
-    uint256 public xETHMintFeeMode1      = 0.000e18;
-    uint256 public xETHRedeemFeeMode1    = 0.010e18;
+    uint256 public hyUSDMintFeeMode1 = 0.01e18;
+    uint256 public hyUSDRedeemFeeMode1 = 0.0e18;
+    uint256 public xETHMintFeeMode1 = 0.0e18;
+    uint256 public xETHRedeemFeeMode1 = 0.01e18;
 
-    uint256 public hyUSDMintFeeMode2     = 0.050e18;
-    uint256 public hyUSDRedeemFeeMode2   = 0.000e18;
-    uint256 public xETHMintFeeMode2      = 0.000e18;
-    uint256 public xETHRedeemFeeMode2    = 0.050e18;
+    uint256 public hyUSDMintFeeMode2 = 0.05e18;
+    uint256 public hyUSDRedeemFeeMode2 = 0.0e18;
+    uint256 public xETHMintFeeMode2 = 0.0e18;
+    uint256 public xETHRedeemFeeMode2 = 0.05e18;
 
-    enum StabilityMode { HEALTHY, MODE1, MODE2 }
+    enum StabilityMode {
+        HEALTHY,
+        MODE1,
+        MODE2
+    }
 
     event ModeChanged(StabilityMode newMode, uint256 cr);
 
@@ -36,35 +40,35 @@ contract FeeController is Ownable {
 
     function getMode(uint256 cr) public pure returns (StabilityMode) {
         if (cr >= CR_HEALTHY) return StabilityMode.HEALTHY;
-        if (cr >= CR_MODE1)   return StabilityMode.MODE1;
+        if (cr >= CR_MODE1) return StabilityMode.MODE1;
         return StabilityMode.MODE2;
     }
 
     function getHyUSDMintFee(uint256 cr) external view returns (uint256) {
         StabilityMode mode = getMode(cr);
         if (mode == StabilityMode.HEALTHY) return hyUSDMintFeeHealthy;
-        if (mode == StabilityMode.MODE1)   return hyUSDMintFeeMode1;
+        if (mode == StabilityMode.MODE1) return hyUSDMintFeeMode1;
         return hyUSDMintFeeMode2;
     }
 
     function getHyUSDRedeemFee(uint256 cr) external view returns (uint256) {
         StabilityMode mode = getMode(cr);
         if (mode == StabilityMode.HEALTHY) return hyUSDRedeemFeeHealthy;
-        if (mode == StabilityMode.MODE1)   return hyUSDRedeemFeeMode1;
+        if (mode == StabilityMode.MODE1) return hyUSDRedeemFeeMode1;
         return hyUSDRedeemFeeMode2;
     }
 
     function getXETHMintFee(uint256 cr) external view returns (uint256) {
         StabilityMode mode = getMode(cr);
         if (mode == StabilityMode.HEALTHY) return xETHMintFeeHealthy;
-        if (mode == StabilityMode.MODE1)   return xETHMintFeeMode1;
+        if (mode == StabilityMode.MODE1) return xETHMintFeeMode1;
         return xETHMintFeeMode2;
     }
 
     function getXETHRedeemFee(uint256 cr) external view returns (uint256) {
         StabilityMode mode = getMode(cr);
         if (mode == StabilityMode.HEALTHY) return xETHRedeemFeeHealthy;
-        if (mode == StabilityMode.MODE1)   return xETHRedeemFeeMode1;
+        if (mode == StabilityMode.MODE1) return xETHRedeemFeeMode1;
         return xETHRedeemFeeMode2;
     }
 
@@ -74,15 +78,15 @@ contract FeeController is Ownable {
         net = amount - feeAmount;
     }
 
-    function setHealthyFees(
-        uint256 mintHyUSD, uint256 redeemHyUSD,
-        uint256 mintXETH,  uint256 redeemXETH
-    ) external onlyOwner {
+    function setHealthyFees(uint256 mintHyUSD, uint256 redeemHyUSD, uint256 mintXETH, uint256 redeemXETH)
+        external
+        onlyOwner
+    {
         require(mintHyUSD <= 0.05e18 && redeemHyUSD <= 0.05e18, "Fee too high");
-        require(mintXETH  <= 0.05e18 && redeemXETH  <= 0.05e18, "Fee too high");
-        hyUSDMintFeeHealthy   = mintHyUSD;
+        require(mintXETH <= 0.05e18 && redeemXETH <= 0.05e18, "Fee too high");
+        hyUSDMintFeeHealthy = mintHyUSD;
         hyUSDRedeemFeeHealthy = redeemHyUSD;
-        xETHMintFeeHealthy    = mintXETH;
-        xETHRedeemFeeHealthy  = redeemXETH;
+        xETHMintFeeHealthy = mintXETH;
+        xETHRedeemFeeHealthy = redeemXETH;
     }
 }
