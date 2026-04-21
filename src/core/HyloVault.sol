@@ -367,7 +367,7 @@ contract HyloVault is ReentrancyGuard, AccessControl, Pausable {
         uint256 cr = getCollateralRatio();
         require(cr < CR_DRAWDOWN_TRIGGER, "Vault: CR above drawdown threshold");
 
-        uint256 poolHyUSD = stabilityPool.totalHyUSD();
+        uint256 poolHyUSD = stabilityPool.totalBloomUSd();
         require(poolHyUSD > 0, "Vault: Stability Pool empty");
 
         uint256 totalETH = getTotalETH();
