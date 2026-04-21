@@ -50,10 +50,10 @@ contract StabilityPool is ReentrancyGuard, AccessControl {
     /// @param amount Amount of hyUSD to deposit (WAD)
     function depositWithPermit2(
         uint160 amount,
-        address owner, 
+        address owner,
         IAllowanceTransfer.PermitSingle calldata permitSingle,
         bytes calldata signature
-        ) external nonReentrant returns (uint256 shares) {
+    ) external nonReentrant returns (uint256 shares) {
         require(amount > 0, "SP: zero amount");
 
         uint256 supply = shyUSD.totalSupply();
