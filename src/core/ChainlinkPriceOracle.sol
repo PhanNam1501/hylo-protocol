@@ -12,7 +12,7 @@ interface AggregatorV3Interface {
 }
 
 /// @title ChainlinkPriceOracle
-/// @notice Chainlink ETH/USD oracle wrapper with staleness checks.
+/// @notice Chainlink Native/USD oracle wrapper with staleness checks.
 contract ChainlinkPriceOracle is IPriceOracle {
     AggregatorV3Interface public immutable feed;
     uint256 public constant STALE_THRESHOLD = 1 hours;
@@ -22,7 +22,7 @@ contract ChainlinkPriceOracle is IPriceOracle {
     }
 
     /// @inheritdoc IPriceOracle
-    function getETHUSDPrice() external view override returns (uint256 price, uint256 updatedAt) {
+    function getNativeUSDPrice() external view override returns (uint256 price, uint256 updatedAt) {
         (, int256 answer,, uint256 _updatedAt,) = feed.latestRoundData();
         require(answer > 0, "Oracle: invalid price");
         require(block.timestamp - _updatedAt <= STALE_THRESHOLD, "Oracle: stale price");

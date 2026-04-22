@@ -12,7 +12,7 @@ contract MockPriceOracle is IPriceOracle {
         updatedAt = block.timestamp;
     }
 
-    function getETHUSDPrice() external view override returns (uint256, uint256) {
+    function getNativeUSDPrice() external view override returns (uint256, uint256) {
         require(price != 0, "MockPriceOracle: price not set");
         return (price, updatedAt);
     }

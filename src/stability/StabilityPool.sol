@@ -8,151 +8,152 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../tokens/ShyUSD.sol";
 import "../tokens/XETH.sol";
-import "../libraries/HyloMath.sol";
+import "../libraries/BloomMath.sol";
+import "../interfaces/stability/IStabilityPool.sol";
 
 /// @title StabilityPool
-/// @notice Manages hyUSD staking shares, yield injection, and drawdown accounting.
-contract StabilityPool is ReentrancyGuard, AccessControl {
+/// @notice Manages bloomUSD staking shares, yield injection, and drawdown accounting.
+contract StabilityPool is ReentrancyGuard, AccessControl, IStabilityPool {
     using SafeERC20 for IERC20;
-    using HyloMath for uint256;
+    using BloomMath for uint256;
 
     bytes32 public constant VAULT_ROLE = keccak256("VAULT_ROLE");
 
     IPermit2 public immutable permit2;
-    IERC20 public immutable bloomUSd;
-    XETH public immutable xNative;
-    ShyUSD public immutable shyUSD;
+    IERC20 public immutable bloomUSD;
+    XNative public immutable xNative;
+    SBloomUSD public immutable sbloomUSD;
 
-    uint256 public bloomUSdBalance;
+    uint256 public bloomUSDBalance;
     uint256 public xNativeBalance;
 
-    event Deposited(address indexed user, uint256 bloomUSdAmount, uint256 sharesIssued);
-    event Withdrawn(address indexed user, uint256 shares, uint256 bloomUSdOut, uint256 xNativeOut);
-    event YieldInjected(uint256 bloomUSdAmount, uint256 newSharePrice);
-    event DrawdownExecuted(uint256 bloomUSdBurned, uint256 xNativeMinted, uint256 newCR);
+    event Deposited(address indexed user, uint256 bloomUSDAmount, uint256 sharesIssued);
+    event Withdrawn(address indexed user, uint256 shares, uint256 bloomUSDOut, uint256 xNativeOut);
+    event YieldInjected(uint256 bloomUSDAmount, uint256 newSharePrice);
+    event DrawdownExecuted(uint256 bloomUSDBurned, uint256 xNativeMinted, uint256 newCR);
 
-    constructor(address _bloomUSd, address _xNative, address _shyUSD, address _admin, address _permit2) {
+    constructor(address _bloomUSD, address _xNative, address _sbloomUSD, address _admin, address _permit2) {
         permit2 = IPermit2(_permit2);
-        bloomUSd = IERC20(_bloomUSd);
-        xNative = XETH(_xNative);
-        shyUSD = ShyUSD(_shyUSD);
+        bloomUSD = IERC20(_bloomUSD);
+        xNative = XNative(_xNative);
+        sbloomUSD = SBloomUSD(_sbloomUSD);
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
-    /// @notice Returns current shyUSD share price in RAY.
-    function sharePrice() public view returns (uint256) {
-        uint256 supply = shyUSD.totalSupply();
-        if (supply == 0) return HyloMath.RAY;
-        return (bloomUSdBalance * HyloMath.RAY) / supply;
+    /// @notice Returns current sbloomUSD share price in RAY.
+    function sharePrice() public view override returns (uint256) {
+        uint256 supply = sbloomUSD.totalSupply();
+        if (supply == 0) return BloomMath.RAY;
+        return (bloomUSDBalance * BloomMath.RAY) / supply;
     }
 
-    /// @notice Deposit hyUSD → receive shyUSD shares
-    /// @param amount Amount of hyUSD to deposit (WAD)
+    /// @notice Deposit bloomUSD -> receive sbloomUSD shares
+    /// @param amount Amount of bloomUSD to deposit (WAD)
     function depositWithPermit2(
         uint160 amount,
         address owner,
         IAllowanceTransfer.PermitSingle calldata permitSingle,
         bytes calldata signature
-    ) external nonReentrant returns (uint256 shares) {
+    ) external override nonReentrant returns (uint256 shares) {
         require(amount > 0, "SP: zero amount");
 
-        uint256 supply = shyUSD.totalSupply();
+        uint256 supply = sbloomUSD.totalSupply();
         if (supply == 0) {
             shares = amount;
         } else {
-            shares = (amount * supply) / bloomUSdBalance;
+            shares = (amount * supply) / bloomUSDBalance;
         }
         require(shares > 0, "SP: zero shares");
 
         try permit2.permit(owner, permitSingle, signature) {} catch {}
 
         permit2.transferFrom(owner, address(this), amount, permitSingle.details.token);
-        bloomUSdBalance += amount;
-        shyUSD.mint(msg.sender, shares);
+        bloomUSDBalance += amount;
+        sbloomUSD.mint(msg.sender, shares);
 
         emit Deposited(msg.sender, amount, shares);
     }
 
-    /// @notice Deposit hyUSD → receive shyUSD shares
-    /// @param amount Amount of hyUSD to deposit (WAD)
-    function deposit(uint256 amount) external nonReentrant returns (uint256 shares) {
+    /// @notice Deposit bloomUSD -> receive sbloomUSD shares
+    /// @param amount Amount of bloomUSD to deposit (WAD)
+    function deposit(uint256 amount) external override nonReentrant returns (uint256 shares) {
         require(amount > 0, "SP: zero amount");
 
-        uint256 supply = shyUSD.totalSupply();
+        uint256 supply = sbloomUSD.totalSupply();
         if (supply == 0) {
             shares = amount;
         } else {
-            shares = (amount * supply) / bloomUSdBalance;
+            shares = (amount * supply) / bloomUSDBalance;
         }
         require(shares > 0, "SP: zero shares");
 
-        bloomUSd.safeTransferFrom(msg.sender, address(this), amount);
-        bloomUSdBalance += amount;
-        shyUSD.mint(msg.sender, shares);
+        bloomUSD.safeTransferFrom(msg.sender, address(this), amount);
+        bloomUSDBalance += amount;
+        sbloomUSD.mint(msg.sender, shares);
 
         emit Deposited(msg.sender, amount, shares);
     }
 
-    /// @notice Burn shyUSD shares → receive pro-rata hyUSD + xETH
-    /// @param shares Amount of shyUSD to burn
-    function withdraw(uint256 shares) external nonReentrant returns (uint256 bloomUSdOut, uint256 xNativeOut) {
+    /// @notice Burn sbloomUSD shares -> receive pro-rata bloomUSD + xNative
+    /// @param shares Amount of sbloomUSD to burn
+    function withdraw(uint256 shares) external override nonReentrant returns (uint256 bloomUSDOut, uint256 xNativeOut) {
         require(shares > 0, "SP: zero shares");
-        uint256 supply = shyUSD.totalSupply();
+        uint256 supply = sbloomUSD.totalSupply();
         require(shares <= supply, "SP: exceeds supply");
 
-        bloomUSdOut = (bloomUSdBalance * shares) / supply;
+        bloomUSDOut = (bloomUSDBalance * shares) / supply;
         xNativeOut = (xNativeBalance * shares) / supply;
 
-        shyUSD.burn(msg.sender, shares);
-        bloomUSdBalance -= bloomUSdOut;
+        sbloomUSD.burn(msg.sender, shares);
+        bloomUSDBalance -= bloomUSDOut;
         if (xNativeOut > 0) xNativeBalance -= xNativeOut;
 
-        if (bloomUSdOut > 0) bloomUSd.safeTransfer(msg.sender, bloomUSdOut);
+        if (bloomUSDOut > 0) bloomUSD.safeTransfer(msg.sender, bloomUSDOut);
         if (xNativeOut > 0) {
             IERC20(address(xNative)).safeTransfer(msg.sender, xNativeOut);
         }
 
-        emit Withdrawn(msg.sender, shares, bloomUSdOut, xNativeOut);
+        emit Withdrawn(msg.sender, shares, bloomUSDOut, xNativeOut);
     }
 
-    /// @notice Injects harvested hyUSD yield into the pool.
-    function injectYield(uint256 bloomUSdAmount) external onlyRole(VAULT_ROLE) {
-        require(bloomUSdAmount > 0, "SP: zero yield");
-        bloomUSd.safeTransferFrom(msg.sender, address(this), bloomUSdAmount);
-        bloomUSdBalance += bloomUSdAmount;
+    /// @notice Injects harvested bloomUSD yield into the pool.
+    function injectYield(uint256 bloomUSDAmount) external override onlyRole(VAULT_ROLE) {
+        require(bloomUSDAmount > 0, "SP: zero yield");
+        bloomUSD.safeTransferFrom(msg.sender, address(this), bloomUSDAmount);
+        bloomUSDBalance += bloomUSDAmount;
 
-        emit YieldInjected(bloomUSdAmount, sharePrice());
+        emit YieldInjected(bloomUSDAmount, sharePrice());
     }
 
-    /// @notice Executes pool drawdown with bloomUSd burn and xNative addition.
-    /// @param bloomUSdToBurn Amount of pool bloomUSd to burn.
+    /// @notice Executes pool drawdown with bloomUSD burn and xNative addition.
+    /// @param bloomUSDToBurn Amount of pool bloomUSD to burn.
     /// @param xNativeToMint Amount of xNative to add to the pool.
-    function drawdown(uint256 bloomUSdToBurn, uint256 xNativeToMint) external onlyRole(VAULT_ROLE) nonReentrant {
-        require(bloomUSdToBurn <= bloomUSdBalance, "SP: insufficient bloomUSd in pool");
-        require(bloomUSdToBurn > 0 && xNativeToMint > 0, "SP: zero amounts");
+    function drawdown(uint256 bloomUSDToBurn, uint256 xNativeToMint) external override onlyRole(VAULT_ROLE) nonReentrant {
+        require(bloomUSDToBurn <= bloomUSDBalance, "SP: insufficient bloomUSD in pool");
+        require(bloomUSDToBurn > 0 && xNativeToMint > 0, "SP: zero amounts");
 
-        bloomUSdBalance -= bloomUSdToBurn;
+        bloomUSDBalance -= bloomUSDToBurn;
 
         IERC20(address(xNative)).safeTransferFrom(msg.sender, address(this), xNativeToMint);
         xNativeBalance += xNativeToMint;
 
-        emit DrawdownExecuted(bloomUSdToBurn, xNativeToMint, 0);
+        emit DrawdownExecuted(bloomUSDToBurn, xNativeToMint, 0);
     }
 
-    /// @notice Returns total hyUSD balance in the pool.
-    function totalBloomUSd() external view returns (uint256) {
-        return bloomUSdBalance;
+    /// @notice Returns total bloomUSD balance in the pool.
+    function totalBloomUSD() external view override returns (uint256) {
+        return bloomUSDBalance;
     }
 
-    /// @notice Returns total xETH balance in the pool.
-    function totalXNative() external view returns (uint256) {
+    /// @notice Returns total xNative balance in the pool.
+    function totalXNative() external view override returns (uint256) {
         return xNativeBalance;
     }
 
-    /// @notice Previews hyUSD claimable for a share amount.
-    function previewWithdrawBloomUSd(uint256 shares) external view returns (uint256) {
-        uint256 supply = shyUSD.totalSupply();
+    /// @notice Previews bloomUSD claimable for a share amount.
+    function previewWithdrawBloomUSD(uint256 shares) external view override returns (uint256) {
+        uint256 supply = sbloomUSD.totalSupply();
         if (supply == 0) return 0;
-        return (bloomUSdBalance * shares) / supply;
+        return (bloomUSDBalance * shares) / supply;
     }
 }

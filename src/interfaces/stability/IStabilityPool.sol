@@ -15,15 +15,15 @@ interface IStabilityPool {
         bytes calldata signature
     ) external returns (uint256 shares);
 
-    function withdraw(uint256 shares) external returns (uint256 bloomUSdOut, uint256 xNativeOut);
+    function withdraw(uint256 shares) external returns (uint256 bloomUSDOut, uint256 xNativeOut);
 
-    function injectYield(uint256 bloomUSdAmount) external;
+    function injectYield(uint256 bloomUSDAmount) external;
 
-    function drawdown(uint256 bloomUSdToBurn, uint256 xNativeToMint) external;
+    function drawdown(uint256 bloomUSDToBurn, uint256 xNativeToMint) external;
 
-    function totalBloomUSd() external view returns (uint256);
+    function totalBloomUSD() external view returns (uint256);
 
     function totalXNative() external view returns (uint256);
 
-    function previewWithdrawBloomUSd(uint256 shares) external view returns (uint256);
+    function previewWithdrawBloomUSD(uint256 shares) external view returns (uint256);
 }

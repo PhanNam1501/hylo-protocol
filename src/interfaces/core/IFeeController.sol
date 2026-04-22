@@ -10,15 +10,16 @@ interface IFeeController {
 
     function getMode(uint256 cr) external pure returns (StabilityMode);
 
-    function getHyUSDMintFee(uint256 cr) external view returns (uint256);
+    function getBloomUSDMintFee(uint256 cr) external view returns (uint256);
 
-    function getHyUSDRedeemFee(uint256 cr) external view returns (uint256);
+    function getBloomUSDRedeemFee(uint256 cr) external view returns (uint256);
 
-    function getXETHMintFee(uint256 cr) external view returns (uint256);
+    function getXNativeMintFee(uint256 cr) external view returns (uint256);
 
-    function getXETHRedeemFee(uint256 cr) external view returns (uint256);
+    function getXNativeRedeemFee(uint256 cr) external view returns (uint256);
 
     function applyFee(uint256 amount, uint256 feeBps) external pure returns (uint256 net, uint256 feeAmount);
 
-    function setHealthyFees(uint256 mintHyUSD, uint256 redeemHyUSD, uint256 mintXETH, uint256 redeemXETH) external;
+    function setHealthyFees(uint256 mintBloomUSD, uint256 redeemBloomUSD, uint256 mintXNative, uint256 redeemXNative)
+        external;
 }
