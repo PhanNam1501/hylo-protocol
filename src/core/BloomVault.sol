@@ -83,30 +83,6 @@ contract BloomVault is ReentrancyGuardUpgradeable, IBloomVault, Clone {
         return _stabilityPool();
     }
 
-    // constructor(
-    //     address _bloomUSD,
-    //     address _xNative,
-    //     address _lstOracle,
-    //     address _priceOracle,
-    //     address _feeController,
-    //     address _stabilityPool,
-    //     address _treasury,
-    //     address _admin
-    // ) {
-    //     bloomUSD = BloomUSD(_bloomUSD);
-    //     xNative = XNative(_xNative);
-    //     lstOracle = ILSTOracle(_lstOracle);
-    //     priceOracle = IPriceOracle(_priceOracle);
-    //     feeController = IFeeController(_feeController);
-    //     stabilityPool = IStabilityPool(_stabilityPool);
-    //     treasury = _treasury;
-
-    //     _grantRole(DEFAULT_ADMIN_ROLE, _admin);
-    //     _grantRole(HARVESTER_ROLE, _admin);
-    //     _grantRole(GUARDIAN_ROLE, _admin);
-    // }
-
-
     /// @notice Returns total Native value of all accepted LST collateral.
     function getTotalNative() public view override returns (uint256 totalNative) {
         for (uint256 i = 0; i < lstAssets.length; i++) {

@@ -66,13 +66,12 @@ contract BloomVaultFactory is Ownable2Step, AccessControl, IBloomVaultFactory {
         _checkDependenciesSet();
         bytes32 salt = _computeVaultSalt(bloomUSD, xNative);
         bytes memory data = _getVaultImmutableData(bloomUSD, xNative);
-        bytes32 initCodeHash = ImmutableClone.initCodeHash(_vaultImplementation, data);
 
         vault = ImmutableClone.cloneDeterministic(_vaultImplementation, data, salt);
         IBloomVault(vault).initialize();
         _vaultByPair[bloomUSD][xNative] = vault;
 
-        emit VaultDeployed(salt, initCodeHash, vault);
+        emit VaultDeployed(salt, ImmutableClone.initCodeHash(_vaultImplementation, data), vault);
     }
 
     function _setVaultDependencies(address lstOracle, address priceOracle, address feeController, address stabilityPool)
