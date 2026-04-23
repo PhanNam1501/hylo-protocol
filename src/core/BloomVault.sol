@@ -188,6 +188,7 @@ contract BloomVault is ReentrancyGuardUpgradeable, IBloomVault, Clone {
         _syncSnapshotForLST(lst);
 
         uint256 cr = getCollateralRatio();
+        require(cr < CR_DRAWDOWN_TRIGGER, "Vault: CR above drawdown threshold");
 
         uint256 lstRate = _lstOracle().getLSTRate(lst);
         uint256 nativePrice = getNativePrice();
